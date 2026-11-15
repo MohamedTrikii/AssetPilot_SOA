@@ -1,0 +1,143 @@
+// AssetPilot - Maintenance Service
+// Contrat gRPC version 1 (package assetpilot.maintenance.v1).
+//
+// Règles d'évolution :
+//  - ne jamais réutiliser ni renuméroter un numéro de champ existant ;
+//  - un champ supprimé doit être déclaré "reserved" (numéro et nom) ;
+//  - toute rupture de compatibilité passe par un nouveau package (v2).
+
+syntax = "proto3";
+
+package assetpilot.maintenance.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.assetpilot.maintenance.proto.v1";
+option java_outer_classname = "MaintenanceProto";
+
+// ============================================================
+// Service
+// ============================================================
+
+service MaintenanceService {
+  // Unaire : crée une demande de maintenance pour un équipement.
+  rpc CreateMaintenanceRequest(CreateMaintenanceRequestRequest)
+      returns (CreateMaintenanceRequestResponse);
+
+  // Unaire : planifie une intervention pour une demande existante.
+  rpc ScheduleIntervention(ScheduleInterventionRequest)
+      returns (ScheduleInterventionResponse);
+
+  // Server streaming : le serveur émet un événement à chaque changement
+  // de statut de l'intervention suivie.
+  rpc TrackInterventionStatus(TrackInterventionStatusRequest)
+      returns (stream InterventionStatusEvent);
+}
+
+// ============================================================
+// Énumérations
+// ============================================================
+
+// Cycle de vie d'une demande de maintenance.
+enum MaintenanceRequestStatus {
+  MAINTENANCE_REQUEST_STATUS_UNSPECIFIED = 0;
+  // Demande créée, en attente de planification.
+  MAINTENANCE_REQUEST_STATUS_OPEN = 1;
+  // Une intervention a été planifiée pour cette demande.
+  MAINTENANCE_REQUEST_STATUS_SCHEDULED = 2;
+  // L'intervention associée est terminée.
+  MAINTENANCE_REQUEST_STATUS_RESOLVED = 3;
+  // Demande annulée.
+  MAINTENANCE_REQUEST_STATUS_CANCELLED = 4;
+}
+
+// Cycle de vie d'une intervention de maintenance.
+enum InterventionStatus {
+  INTERVENTION_STATUS_UNSPECIFIED = 0;
+  // Intervention planifiée à une date donnée.
+  INTERVENTION_STATUS_SCHEDULED = 1;
+  // Intervention en cours de réalisation.
+  INTERVENTION_STATUS_IN_PROGRESS = 2;
+  // Intervention terminée.
+  INTERVENTION_STATUS_COMPLETED = 3;
+  // Intervention annulée.
+  INTERVENTION_STATUS_CANCELLED = 4;
+}
+
+// ============================================================
+// Ressources
+// ============================================================
+
+// Demande de maintenance d'un équipement.
+message MaintenanceRequest {
+  // Identifiant de la demande.
+  string id = 1;
+  // Identifiant de l'équipement (géré par l'Asset Service).
+  string asset_id = 2;
+  // Description du problème constaté.
+  string description = 3;
+  // Date de création (UTC).
+  google.protobuf.Timestamp created_at = 4;
+  // Statut courant de la demande.
+  MaintenanceRequestStatus status = 5;
+}
+
+// Intervention de maintenance planifiée pour une demande.
+message Intervention {
+  // Identifiant de l'intervention.
+  string id = 1;
+  // Identifiant de la demande associée.
+  string maintenance_request_id = 2;
+  // Identifiant de l'équipement concerné.
+  string asset_id = 3;
+  // Date planifiée de l'intervention (UTC).
+  google.protobuf.Timestamp scheduled_at = 4;
+  // Statut courant de l'intervention.
+  InterventionStatus status = 5;
+}
+
+// ============================================================
+// Requêtes / réponses
+// ============================================================
+
+message CreateMaintenanceRequestRequest {
+  // Identifiant de l'équipement concerné.
+  string asset_id = 1;
+  // Description du problème.
+  string description = 2;
+}
+
+message CreateMaintenanceRequestResponse {
+  // Demande créée.
+  MaintenanceRequest maintenance_request = 1;
+}
+
+message ScheduleInterventionRequest {
+  // Identifiant de la demande à planifier.
+  string maintenance_request_id = 1;
+  // Date souhaitée pour l'intervention (UTC).
+  google.protobuf.Timestamp scheduled_at = 2;
+}
+
+message ScheduleInterventionResponse {
+  // Intervention planifiée.
+  Intervention intervention = 1;
+}
+
+message TrackInterventionStatusRequest {
+  // Identifiant de l'intervention à suivre.
+  string intervention_id = 1;
+}
+
+// Événement émis dans le flux à chaque changement de statut.
+message InterventionStatusEvent {
+  // Identifiant de l'intervention concernée.
+  string intervention_id = 1;
+  // Statut avant le changement.
+  InterventionStatus previous_status = 2;
+  // Statut après le changement.
+  InterventionStatus current_status = 3;
+  // Date du changement (UTC).
+  google.protobuf.Timestamp changed_at = 4;
+}
