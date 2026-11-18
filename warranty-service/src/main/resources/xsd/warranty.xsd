@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://assetpilot.com/warranty/v1"
+           targetNamespace="http://assetpilot.com/warranty/v1"
+           elementFormDefault="qualified">
+
+    <!-- =================================================================== -->
+    <!-- Operations: CheckWarranty                                           -->
+    <!-- =================================================================== -->
+    <xs:element name="CheckWarrantyRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="assetId" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="CheckWarrantyResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="assetId" type="xs:string"/>
+                <xs:element name="isCovered" type="xs:boolean"/>
+                <xs:element name="status" type="tns:WarrantyStatus"/>
+                <xs:element name="expiryDate" type="xs:date" minOccurs="0"/>
+                <xs:element name="coverageType" type="tns:CoverageType" minOccurs="0"/>
+                <xs:element name="message" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- =================================================================== -->
+    <!-- Operations: GetWarrantyDetails                                      -->
+    <!-- =================================================================== -->
+    <xs:element name="GetWarrantyDetailsRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="assetId" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="GetWarrantyDetailsResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="warranty" type="tns:WarrantyDetails"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- =================================================================== -->
+    <!-- SOAP Fault Detail (Payload for custom SOAP Faults)                  -->
+    <!-- =================================================================== -->
+    <xs:element name="ServiceFault">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="errorCode" type="xs:string"/>
+                <xs:element name="errorMessage" type="xs:string"/>
+                <xs:element name="assetId" type="xs:string" minOccurs="0"/>
+                <xs:element name="timestamp" type="xs:dateTime"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- =================================================================== -->
+    <!-- Domain Types and Enumerations                                       -->
+    <!-- =================================================================== -->
+    <xs:simpleType name="WarrantyStatus">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ACTIVE"/>
+            <xs:enumeration value="EXPIRED"/>
+            <xs:enumeration value="VOIDED"/>
+            <xs:enumeration value="PENDING"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="CoverageType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="STANDARD"/>
+            <xs:enumeration value="PREMIUM"/>
+            <xs:enumeration value="EXTENDED"/>
+            <xs:enumeration value="PARTS_ONLY"/>
+            <xs:enumeration value="LABOR_ONLY"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:complexType name="WarrantyDetails">
+        <xs:sequence>
+            <xs:element name="id" type="xs:string"/>
+            <xs:element name="assetId" type="xs:string"/>
+            <xs:element name="contractNumber" type="xs:string"/>
+            <xs:element name="provider" type="xs:string"/>
+            <xs:element name="startDate" type="xs:date"/>
+            <xs:element name="endDate" type="xs:date"/>
+            <xs:element name="status" type="tns:WarrantyStatus"/>
+            <xs:element name="coverageType" type="tns:CoverageType"/>
+            <xs:element name="slaLevel" type="xs:string"/>
+            <xs:element name="terms" type="xs:string"/>
+            <xs:element name="supportContact" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+</xs:schema>
