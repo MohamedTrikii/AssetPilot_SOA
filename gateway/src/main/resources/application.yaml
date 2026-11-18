@@ -1,0 +1,22 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: warranty-soap
+              uri: http://localhost:8082
+              predicates:
+                - Path=/ws/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
