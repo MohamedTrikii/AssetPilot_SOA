@@ -1,5 +1,5 @@
 server:
-  port: 8083
+  port: ${SERVER_PORT:8083}
 
 spring:
   application:
@@ -9,14 +9,38 @@ spring:
     gateway:
       server:
         webmvc:
+          http-client:
+            connect-timeout: 3s
           routes:
+            # Asset Service — API REST versionnée
+            - id: asset-rest
+              uri: ${ASSET_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/**
+
+            # Asset Service — documentation OpenAPI / Swagger UI
+            - id: asset-openapi
+              uri: ${ASSET_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/v3/api-docs/**,/swagger-ui/**,/swagger-ui.html
+
+            # Warranty Service — SOAP (endpoint + WSDL)
             - id: warranty-soap
-              uri: http://localhost:8082
+              uri: ${WARRANTY_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/ws/**
+
+# Origines autorisées pour le front-end (séparées par des virgules)
+assetpilot:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200,http://localhost:5173}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,gateway
+  endpoint:
+    health:
+      probes:
+        enabled: true

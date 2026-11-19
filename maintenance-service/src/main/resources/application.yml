@@ -2,6 +2,36 @@ spring:
   application:
     name: maintenance-service
 
+  datasource:
+    url: ${MAINTENANCE_DB_URL:jdbc:h2:mem:maintenancedb;DB_CLOSE_DELAY=-1}
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+# Port HTTP d'administration (Actuator / healthcheck uniquement)
+server:
+  port: ${SERVER_PORT:8084}
+
 grpc:
   server:
-    port: 9090
+    port: ${GRPC_PORT:9090}
+    # Réflexion activée pour grpcurl / Postman
+    reflection-service-enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.assetpilot.maintenance: INFO

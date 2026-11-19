@@ -18,7 +18,11 @@ It receives client requests and forwards them to the appropriate microservice ba
 
 | Route ID | Gateway path | Destination |
 |---|---|---|
-| `warranty-soap` | `/ws/**` | `http://localhost:8082` |
+| `asset-rest` | `/api/v1/**` | `${ASSET_SERVICE_URL:http://localhost:8081}` |
+| `asset-openapi` | `/v3/api-docs/**`, `/swagger-ui/**`, `/swagger-ui.html` | `${ASSET_SERVICE_URL:http://localhost:8081}` |
+| `warranty-soap` | `/ws/**` | `${WARRANTY_SERVICE_URL:http://localhost:8082}` |
+
+CORS is configured globally on the Gateway (`CORS_ALLOWED_ORIGINS`, default `http://localhost:3000,4200,5173`) for the front-end.
 
 The Gateway preserves the original request path when forwarding requests.
 
