@@ -195,7 +195,32 @@
                     </schemaIncludes>
                     <generatePackage>com.assetpilot.asset_service.client.warranty.soap</generatePackage>
                     <generateDirectory>${project.build.directory}/generated-sources/jaxb</generateDirectory>
+                    <addCompileSourceRoot>true</addCompileSourceRoot>
+                    <cleanPackageDirectories>true</cleanPackageDirectories>
                 </configuration>
+            </plugin>
+
+            <!-- Enregistrement des sources générées (Protobuf gRPC & JAXB SOAP) dans le classpath du projet pour les IDEs (VS Code, IntelliJ, Eclipse) -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-generated-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.build.directory}/generated-sources/protobuf/java</source>
+                                <source>${project.build.directory}/generated-sources/protobuf/grpc-java</source>
+                                <source>${project.build.directory}/generated-sources/jaxb</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
