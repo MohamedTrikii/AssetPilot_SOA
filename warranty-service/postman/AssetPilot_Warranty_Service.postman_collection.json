@@ -1,0 +1,226 @@
+{
+	"info": {
+		"_postman_id": "b3e7f4c2-8d91-4e20-91a5-e356c28f1100",
+		"name": "AssetPilot - Warranty Service (SOAP)",
+		"description": "Collection Postman pour tester les opérations SOAP et SOAP Faults du microservice Warranty Service d'AssetPilot.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8082",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "0. Télécharger le contrat WSDL",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/ws/warranties.wsdl",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"ws",
+						"warranties.wsdl"
+					]
+				},
+				"description": "Permet de vérifier que le WSDL dynamique est correctement généré et exposé par Spring-WS."
+			},
+			"response": []
+		},
+		{
+			"name": "1. CheckWarranty - Équipement actif (AST-001)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=UTF-8",
+						"type": "text"
+					},
+					{
+						"key": "SOAPAction",
+						"value": "\"\"",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:CheckWarrantyRequest>\n         <v1:assetId>AST-001</v1:assetId>\n      </v1:CheckWarrantyRequest>\n   </soapenv:Body>\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/ws",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"ws"
+					]
+				},
+				"description": "Vérifie la garantie d'un équipement dont la garantie est active (Dell ProSupport). isCovered doit valoir true."
+			},
+			"response": []
+		},
+		{
+			"name": "2. CheckWarranty - Équipement expiré (AST-002)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=UTF-8",
+						"type": "text"
+					},
+					{
+						"key": "SOAPAction",
+						"value": "\"\"",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:CheckWarrantyRequest>\n         <v1:assetId>AST-002</v1:assetId>\n      </v1:CheckWarrantyRequest>\n   </soapenv:Body>\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/ws",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"ws"
+					]
+				},
+				"description": "Vérifie la garantie d'un équipement dont la garantie est expirée (HP Care). isCovered doit valoir false."
+			},
+			"response": []
+		},
+		{
+			"name": "3. GetWarrantyDetails - Contrat complet (AST-001)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=UTF-8",
+						"type": "text"
+					},
+					{
+						"key": "SOAPAction",
+						"value": "\"\"",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:GetWarrantyDetailsRequest>\n         <v1:assetId>AST-001</v1:assetId>\n      </v1:GetWarrantyDetailsRequest>\n   </soapenv:Body>\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/ws",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"ws"
+					]
+				},
+				"description": "Consulte les informations détaillées du contrat (fournisseur, dates, niveau de SLA, contact support)."
+			},
+			"response": []
+		},
+		{
+			"name": "4. SOAP Fault - Équipement introuvable (AST-999)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=UTF-8",
+						"type": "text"
+					},
+					{
+						"key": "SOAPAction",
+						"value": "\"\"",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:CheckWarrantyRequest>\n         <v1:assetId>AST-999</v1:assetId>\n      </v1:CheckWarrantyRequest>\n   </soapenv:Body>\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/ws",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"ws"
+					]
+				},
+				"description": "Simule une demande pour un assetId non répertorié. Doit retourner un SOAP Fault Client (code 500 en SOAP 1.1) avec détail ServiceFault."
+			},
+			"response": []
+		},
+		{
+			"name": "5. SOAP Fault - Requête invalide (assetId vide)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "text/xml;charset=UTF-8",
+						"type": "text"
+					},
+					{
+						"key": "SOAPAction",
+						"value": "\"\"",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:CheckWarrantyRequest>\n         <v1:assetId></v1:assetId>\n      </v1:CheckWarrantyRequest>\n   </soapenv:Body>\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/ws",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"ws"
+					]
+				},
+				"description": "Simule une requête avec assetId vide. Doit retourner un SOAP Fault Client INVALID_WARRANTY_REQUEST."
+			},
+			"response": []
+		}
+	]
+}
