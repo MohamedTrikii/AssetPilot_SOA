@@ -58,6 +58,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Supervision : /actuator/health (healthcheck Docker) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -99,6 +105,27 @@
                     <generateDirectory>${project.build.directory}/generated-sources/jaxb</generateDirectory>
                     <cleanPackageDirectories>true</cleanPackageDirectories>
                 </configuration>
+            </plugin>
+
+            <!-- Enregistrement des sources générées (JAXB) dans le classpath IDE -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-generated-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.build.directory}/generated-sources/jaxb</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

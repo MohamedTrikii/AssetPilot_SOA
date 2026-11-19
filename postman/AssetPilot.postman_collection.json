@@ -1,0 +1,390 @@
+{
+  "info": {
+    "name": "AssetPilot — API Gateway",
+    "description": "Collection de tests AssetPilot. Toutes les requêtes passent par l'API Gateway ({{baseUrl}}).\nExécuter les dossiers dans l'ordre (Runner) : les IDs créés sont enregistrés dans les variables de collection.\n\nPrérequis : docker compose up --build (ou les 4 services lancés avec mvn spring-boot:run).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8083" },
+    { "key": "equipmentId", "value": "" },
+    { "key": "employeeId", "value": "" },
+    { "key": "assignmentId", "value": "" },
+    { "key": "maintenanceRequestId", "value": "" },
+    { "key": "interventionId", "value": "" },
+    { "key": "scheduledAt", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Date de planification toujours dans le futur (J+1)",
+          "pm.collectionVariables.set('scheduledAt', new Date(Date.now() + 86400000).toISOString());"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Santé",
+      "item": [
+        {
+          "name": "Gateway health",
+          "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+          ] } }]
+        },
+        {
+          "name": "Routes de la Gateway",
+          "request": { "method": "GET", "url": "{{baseUrl}}/actuator/gateway/routes" }
+        },
+        {
+          "name": "OpenAPI (Asset Service via Gateway)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/v3/api-docs" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "1. Equipments (REST)",
+      "item": [
+        {
+          "name": "Lister les équipements",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 + tableau', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an('array'); });"
+          ] } }]
+        },
+        {
+          "name": "Filtrer (status=AVAILABLE, type=LAPTOP)",
+          "request": { "method": "GET", "url": {
+            "raw": "{{baseUrl}}/api/v1/equipments?status=AVAILABLE&type=LAPTOP",
+            "host": ["{{baseUrl}}"], "path": ["api", "v1", "equipments"],
+            "query": [{ "key": "status", "value": "AVAILABLE" }, { "key": "type", "value": "LAPTOP" }]
+          } }
+        },
+        {
+          "name": "Créer un équipement",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/equipments",
+            "body": { "mode": "raw", "raw": "{\n  \"assetTag\": \"AST-{{$randomInt}}{{$randomInt}}\",\n  \"name\": \"Écran Dell 27 pouces\",\n  \"type\": \"MONITOR\",\n  \"brand\": \"Dell\",\n  \"model\": \"P2723D\",\n  \"serialNumber\": \"SN-{{$guid}}\",\n  \"purchaseDate\": \"2025-09-01\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('equipmentId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "Consulter l'équipement créé",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/{{equipmentId}}" }
+        },
+        {
+          "name": "Mettre à jour l'équipement",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/equipments/{{equipmentId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"assetTag\": \"AST-UPD-{{equipmentId}}\",\n  \"name\": \"Écran Dell 27 pouces (salle B)\",\n  \"type\": \"MONITOR\",\n  \"brand\": \"Dell\",\n  \"model\": \"P2723D\",\n  \"serialNumber\": \"SN-UPD-{{equipmentId}}\",\n  \"purchaseDate\": \"2025-09-01\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));"
+          ] } }]
+        },
+        {
+          "name": "Erreur 400 — validation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/equipments",
+            "body": { "mode": "raw", "raw": "{\n  \"assetTag\": \"\",\n  \"name\": \"\",\n  \"type\": \"LAPTOP\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400 + errors', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().errors).to.have.property('assetTag'); });"
+          ] } }]
+        },
+        {
+          "name": "Erreur 409 — assetTag déjà utilisé",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/equipments",
+            "body": { "mode": "raw", "raw": "{\n  \"assetTag\": \"AST-001\",\n  \"name\": \"Doublon\",\n  \"type\": \"LAPTOP\",\n  \"serialNumber\": \"SN-DOUBLON\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409', () => pm.response.to.have.status(409));"
+          ] } }]
+        },
+        {
+          "name": "Erreur 404 — équipement inconnu",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/99999" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('404', () => pm.response.to.have.status(404));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "2. Employees (REST)",
+      "item": [
+        {
+          "name": "Lister les employés",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/employees" }
+        },
+        {
+          "name": "Créer un employé",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/employees",
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Nour\",\n  \"lastName\": \"Haddad\",\n  \"email\": \"nour.{{$randomInt}}{{$randomInt}}@assetpilot.tn\",\n  \"department\": \"Marketing\",\n  \"jobTitle\": \"Chef de projet\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('employeeId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "Consulter l'employé créé",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/employees/{{employeeId}}" }
+        }
+      ]
+    },
+    {
+      "name": "3. Assignments (REST)",
+      "item": [
+        {
+          "name": "Affecter l'équipement à l'employé",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/assignments",
+            "body": { "mode": "raw", "raw": "{\n  \"equipmentId\": {{equipmentId}},\n  \"employeeId\": {{employeeId}},\n  \"notes\": \"Affectation de test Postman\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 + ACTIVE', () => { pm.response.to.have.status(201); pm.expect(pm.response.json().status).to.eql('ACTIVE'); });",
+            "pm.collectionVariables.set('assignmentId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "Erreur 409 — équipement déjà affecté",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/assignments",
+            "body": { "mode": "raw", "raw": "{\n  \"equipmentId\": {{equipmentId}},\n  \"employeeId\": {{employeeId}}\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409', () => pm.response.to.have.status(409));"
+          ] } }]
+        },
+        {
+          "name": "Affectations de l'employé",
+          "request": { "method": "GET", "url": {
+            "raw": "{{baseUrl}}/api/v1/assignments?employeeId={{employeeId}}",
+            "host": ["{{baseUrl}}"], "path": ["api", "v1", "assignments"],
+            "query": [{ "key": "employeeId", "value": "{{employeeId}}" }]
+          } }
+        },
+        {
+          "name": "Restituer l'équipement",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/assignments/{{assignmentId}}/return",
+            "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Restitué en bon état\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('RETURNED', () => pm.expect(pm.response.json().status).to.eql('RETURNED'));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "4. Garantie (Asset → Warranty SOAP)",
+      "item": [
+        {
+          "name": "CheckWarranty — AST-001 couvert",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/1/warranty" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('covered', () => pm.expect(pm.response.json().covered).to.be.true);"
+          ] } }]
+        },
+        {
+          "name": "CheckWarranty — AST-002 expirée",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/2/warranty" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('EXPIRED', () => pm.expect(pm.response.json().status).to.eql('EXPIRED'));"
+          ] } }]
+        },
+        {
+          "name": "CheckWarranty — AST-005 sans garantie (SOAP Fault)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/5/warranty" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('NOT_FOUND', () => pm.expect(pm.response.json().status).to.eql('NOT_FOUND'));"
+          ] } }]
+        },
+        {
+          "name": "GetWarrantyDetails — AST-003",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/3/warranty/details" }
+        },
+        {
+          "name": "GetWarrantyDetails — AST-005 → 404",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/5/warranty/details" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('404 WARRANTY_NOT_FOUND', () => { pm.response.to.have.status(404); pm.expect(pm.response.json().remoteCode).to.eql('WARRANTY_NOT_FOUND'); });"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "5. Maintenance (Asset → Warranty SOAP → Maintenance gRPC)",
+      "item": [
+        {
+          "name": "Déclarer une panne + planifier (AST-003)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/equipments/3/maintenance-requests",
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Batterie qui ne charge plus\",\n  \"scheduledAt\": \"{{scheduledAt}}\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const t = pm.response.json();",
+            "pm.test('201 + garantie + intervention', () => { pm.response.to.have.status(201); pm.expect(t.warranty).to.be.an('object'); pm.expect(t.intervention.status).to.eql('SCHEDULED'); });",
+            "pm.collectionVariables.set('maintenanceRequestId', t.maintenanceRequest.id);",
+            "pm.collectionVariables.set('interventionId', t.intervention.id);"
+          ] } }]
+        },
+        {
+          "name": "Équipement 3 → IN_MAINTENANCE",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/3" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('IN_MAINTENANCE', () => pm.expect(pm.response.json().status).to.eql('IN_MAINTENANCE'));"
+          ] } }]
+        },
+        {
+          "name": "Consulter l'intervention (gRPC GetIntervention)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/interventions/{{interventionId}}" }
+        },
+        {
+          "name": "Erreur 409 — transition interdite SCHEDULED → COMPLETED",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/interventions/{{interventionId}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"COMPLETED\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409 FAILED_PRECONDITION', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().remoteCode).to.eql('FAILED_PRECONDITION'); });"
+          ] } }]
+        },
+        {
+          "name": "Démarrer l'intervention (IN_PROGRESS)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/interventions/{{interventionId}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}" }
+          }
+        },
+        {
+          "name": "Terminer l'intervention (COMPLETED)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/interventions/{{interventionId}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"COMPLETED\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('COMPLETED', () => pm.expect(pm.response.json().status).to.eql('COMPLETED'));"
+          ] } }]
+        },
+        {
+          "name": "Équipement 3 → AVAILABLE",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/equipments/3" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('AVAILABLE', () => pm.expect(pm.response.json().status).to.eql('AVAILABLE'));"
+          ] } }]
+        },
+        {
+          "name": "Déclarer une panne sans planification (AST-005, sans garantie)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/equipments/5/maintenance-requests",
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Bourrage papier récurrent\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.collectionVariables.set('maintenanceRequestId', pm.response.json().maintenanceRequest.id);"
+          ] } }]
+        },
+        {
+          "name": "Planifier l'intervention (gRPC ScheduleIntervention)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/maintenance-requests/{{maintenanceRequestId}}/interventions",
+            "body": { "mode": "raw", "raw": "{\n  \"scheduledAt\": \"{{scheduledAt}}\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('interventionId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "Suivi temps réel (SSE ← gRPC streaming)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "text/event-stream" }],
+            "url": "{{baseUrl}}/api/v1/interventions/{{interventionId}}/status-stream",
+            "description": "Flux Server-Sent Events. Le laisser ouvert, puis changer le statut dans un autre onglet (PATCH /status) : chaque changement apparaît ici. Le flux se ferme à COMPLETED ou CANCELLED."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Warranty SOAP direct (via Gateway /ws)",
+      "item": [
+        {
+          "name": "WSDL",
+          "request": { "method": "GET", "url": "{{baseUrl}}/ws/warranties.wsdl" }
+        },
+        {
+          "name": "CheckWarranty (SOAP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "text/xml; charset=utf-8" }],
+            "url": "{{baseUrl}}/ws",
+            "body": { "mode": "raw", "raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:CheckWarrantyRequest>\n         <v1:assetId>AST-001</v1:assetId>\n      </v1:CheckWarrantyRequest>\n   </soapenv:Body>\n</soapenv:Envelope>" }
+          }
+        },
+        {
+          "name": "GetWarrantyDetails (SOAP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "text/xml; charset=utf-8" }],
+            "url": "{{baseUrl}}/ws",
+            "body": { "mode": "raw", "raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:GetWarrantyDetailsRequest>\n         <v1:assetId>AST-001</v1:assetId>\n      </v1:GetWarrantyDetailsRequest>\n   </soapenv:Body>\n</soapenv:Envelope>" }
+          }
+        },
+        {
+          "name": "SOAP Fault — WARRANTY_NOT_FOUND",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "text/xml; charset=utf-8" }],
+            "url": "{{baseUrl}}/ws",
+            "body": { "mode": "raw", "raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:v1=\"http://assetpilot.com/warranty/v1\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <v1:CheckWarrantyRequest>\n         <v1:assetId>AST-999</v1:assetId>\n      </v1:CheckWarrantyRequest>\n   </soapenv:Body>\n</soapenv:Envelope>" }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('SOAP Fault', () => pm.expect(pm.response.text()).to.include('WARRANTY_NOT_FOUND'));"
+          ] } }]
+        }
+      ]
+    }
+  ]
+}

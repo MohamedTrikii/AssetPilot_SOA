@@ -33,6 +33,16 @@ service MaintenanceService {
   // de statut de l'intervention suivie.
   rpc TrackInterventionStatus(TrackInterventionStatusRequest)
       returns (stream InterventionStatusEvent);
+
+  // Unaire : consulte une intervention existante.
+  rpc GetIntervention(GetInterventionRequest)
+      returns (GetInterventionResponse);
+
+  // Unaire : fait évoluer le statut d'une intervention
+  // (SCHEDULED -> IN_PROGRESS -> COMPLETED, ou CANCELLED).
+  // Chaque changement est diffusé aux clients de TrackInterventionStatus.
+  rpc UpdateInterventionStatus(UpdateInterventionStatusRequest)
+      returns (UpdateInterventionStatusResponse);
 }
 
 // ============================================================
@@ -140,4 +150,25 @@ message InterventionStatusEvent {
   InterventionStatus current_status = 3;
   // Date du changement (UTC).
   google.protobuf.Timestamp changed_at = 4;
+}
+
+message GetInterventionRequest {
+  // Identifiant de l'intervention.
+  string intervention_id = 1;
+}
+
+message GetInterventionResponse {
+  Intervention intervention = 1;
+}
+
+message UpdateInterventionStatusRequest {
+  // Identifiant de l'intervention.
+  string intervention_id = 1;
+  // Nouveau statut souhaité.
+  InterventionStatus status = 2;
+}
+
+message UpdateInterventionStatusResponse {
+  // Intervention après mise à jour.
+  Intervention intervention = 1;
 }

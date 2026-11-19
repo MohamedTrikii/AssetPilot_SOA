@@ -59,7 +59,13 @@ Package : `assetpilot.maintenance.v1`
 |---|---|---|
 | `CreateMaintenanceRequest` | Unaire | Crée une demande de maintenance pour un équipement |
 | `ScheduleIntervention` | Unaire | Planifie une intervention pour une demande existante |
-| `TrackInterventionStatus` | Server streaming | Flux des changements de statut d'une intervention |
+| `TrackInterventionStatus` | Server streaming | Flux des changements de statut d'une intervention (statut courant puis chaque changement ; fin à COMPLETED/CANCELLED) |
+| `GetIntervention` | Unaire | Consulte une intervention |
+| `UpdateInterventionStatus` | Unaire | Fait évoluer le statut (transitions contrôlées, diffusées au flux) |
+
+Erreurs : `INVALID_ARGUMENT` (champ manquant, date passée), `NOT_FOUND` (demande/intervention inconnue), `FAILED_PRECONDITION` (transition interdite, demande non ouverte). Les clients doivent fixer un deadline (`withDeadlineAfter`).
+
+Ports : gRPC `9090`, HTTP d'administration `8084` (`/actuator/health`). Base H2 propre (`maintenancedb`).
 
 Statuts :
 

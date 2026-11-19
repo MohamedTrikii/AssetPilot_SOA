@@ -1,0 +1,101 @@
+# AssetPilot — démarrage complet : docker compose up --build
+#
+#   API Gateway         http://localhost:8083   (point d'entrée unique du front-end)
+#   Asset Service       http://localhost:8081   (REST / Swagger UI)
+#   Warranty Service    http://localhost:8082   (SOAP / WSDL)
+#   Maintenance Service localhost:9090 (gRPC)  + http://localhost:8084/actuator/health
+
+name: assetpilot
+
+# Healthcheck sans dépendance (curl/wget absents de l'image JRE) : requête HTTP via bash /dev/tcp
+x-healthcheck: &healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 40s
+
+services:
+
+  warranty-service:
+    build: ./warranty-service
+    container_name: assetpilot-warranty
+    environment:
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+    networks: [assetpilot-net]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+    restart: unless-stopped
+
+  maintenance-service:
+    build: ./maintenance-service
+    container_name: assetpilot-maintenance
+    environment:
+      SERVER_PORT: 8084
+      GRPC_PORT: 9090
+      MAINTENANCE_DB_URL: jdbc:h2:file:/data/maintenancedb
+    ports:
+      - "9090:9090"
+      - "8084:8084"
+    volumes:
+      - maintenance-data:/data
+    networks: [assetpilot-net]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8084 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+    restart: unless-stopped
+
+  asset-service:
+    build: ./asset-service
+    container_name: assetpilot-asset
+    environment:
+      SERVER_PORT: 8081
+      ASSET_DB_URL: jdbc:h2:file:/data/assetdb
+      WARRANTY_SERVICE_URL: http://warranty-service:8082/ws
+      MAINTENANCE_GRPC_ADDRESS: static://maintenance-service:9090
+      GATEWAY_PUBLIC_URL: http://localhost:8083
+    ports:
+      - "8081:8081"
+    volumes:
+      - asset-data:/data
+    networks: [assetpilot-net]
+    depends_on:
+      warranty-service:
+        condition: service_healthy
+      maintenance-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+    restart: unless-stopped
+
+  gateway:
+    build: ./gateway
+    container_name: assetpilot-gateway
+    environment:
+      SERVER_PORT: 8083
+      ASSET_SERVICE_URL: http://asset-service:8081
+      WARRANTY_SERVICE_URL: http://warranty-service:8082
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:4200,http://localhost:5173
+    ports:
+      - "8083:8083"
+    networks: [assetpilot-net]
+    depends_on:
+      asset-service:
+        condition: service_healthy
+      warranty-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8083 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+    restart: unless-stopped
+
+networks:
+  assetpilot-net:
+    driver: bridge
+
+volumes:
+  asset-data:
+  maintenance-data:
