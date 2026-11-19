@@ -228,6 +228,24 @@ mvn clean verify
 
 ---
 
+## Tests avec Postman
+
+Une collection Postman prête à l'emploi est disponible dans le dossier [`postman/`](postman/) :
+[`postman/AssetPilot_Warranty_Service.postman_collection.json`](postman/AssetPilot_Warranty_Service.postman_collection.json).
+
+Pour importer et tester dans Postman :
+1. Démarrer le service : `mvn spring-boot:run` (ou exécuter `WarrantyApplication`).
+2. Ouvrir Postman > Cliquer sur **Import** > Sélectionner le fichier `.json`.
+3. Exécuter les requêtes configurées :
+   - `0. Télécharger le contrat WSDL` (GET `http://localhost:8082/ws/warranties.wsdl`)
+   - `1. CheckWarranty - Équipement actif (AST-001)` (POST `http://localhost:8082/ws`)
+   - `2. CheckWarranty - Équipement expiré (AST-002)` (POST `http://localhost:8082/ws`)
+   - `3. GetWarrantyDetails - Contrat complet (AST-001)` (POST `http://localhost:8082/ws`)
+   - `4. SOAP Fault - Équipement introuvable (AST-999)` (POST `http://localhost:8082/ws`)
+   - `5. SOAP Fault - Requête invalide (assetId vide)` (POST `http://localhost:8082/ws`)
+
+---
+
 ## Configuration
 
 Fichier `src/main/resources/application.yml` :
