@@ -4,6 +4,13 @@
 #   Asset Service       http://localhost:8081   (REST / Swagger UI)
 #   Warranty Service    http://localhost:8082   (SOAP / WSDL)
 #   Maintenance Service localhost:9090 (gRPC)  + http://localhost:8084/actuator/health
+#
+# Bases de données : une instance PostgreSQL par service (database per service).
+#   asset-db        localhost:5433  (assetdb)
+#   warranty-db     localhost:5434  (warrantydb)
+#   maintenance-db  localhost:5435  (maintenancedb)
+# Identifiants : variables du fichier .env (voir .env.example), valeurs par défaut sinon.
+# Remise à zéro des données : docker compose down -v
 
 name: assetpilot
 
@@ -14,16 +21,85 @@ x-healthcheck: &healthcheck
   retries: 12
   start_period: 40s
 
+# Healthcheck commun des bases PostgreSQL
+x-db-healthcheck: &db-healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 10
+  start_period: 10s
+
 services:
+
+  # ------------------------------------------------------------ bases de données
+
+  asset-db:
+    image: postgres:16-alpine
+    container_name: assetpilot-asset-db
+    environment:
+      POSTGRES_DB: assetdb
+      POSTGRES_USER: ${ASSET_DB_USERNAME:-asset}
+      POSTGRES_PASSWORD: ${ASSET_DB_PASSWORD:-asset_pwd}
+    ports:
+      - "5433:5432"
+    volumes:
+      - asset-db-data:/var/lib/postgresql/data
+    networks: [assetpilot-net]
+    healthcheck:
+      <<: *db-healthcheck
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    restart: unless-stopped
+
+  warranty-db:
+    image: postgres:16-alpine
+    container_name: assetpilot-warranty-db
+    environment:
+      POSTGRES_DB: warrantydb
+      POSTGRES_USER: ${WARRANTY_DB_USERNAME:-warranty}
+      POSTGRES_PASSWORD: ${WARRANTY_DB_PASSWORD:-warranty_pwd}
+    ports:
+      - "5434:5432"
+    volumes:
+      - warranty-db-data:/var/lib/postgresql/data
+    networks: [assetpilot-net]
+    healthcheck:
+      <<: *db-healthcheck
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    restart: unless-stopped
+
+  maintenance-db:
+    image: postgres:16-alpine
+    container_name: assetpilot-maintenance-db
+    environment:
+      POSTGRES_DB: maintenancedb
+      POSTGRES_USER: ${MAINTENANCE_DB_USERNAME:-maintenance}
+      POSTGRES_PASSWORD: ${MAINTENANCE_DB_PASSWORD:-maintenance_pwd}
+    ports:
+      - "5435:5432"
+    volumes:
+      - maintenance-db-data:/var/lib/postgresql/data
+    networks: [assetpilot-net]
+    healthcheck:
+      <<: *db-healthcheck
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    restart: unless-stopped
+
+  # ------------------------------------------------------------ services
 
   warranty-service:
     build: ./warranty-service
     container_name: assetpilot-warranty
     environment:
       SERVER_PORT: 8082
+      WARRANTY_DB_URL: jdbc:postgresql://warranty-db:5432/warrantydb
+      WARRANTY_DB_USERNAME: ${WARRANTY_DB_USERNAME:-warranty}
+      WARRANTY_DB_PASSWORD: ${WARRANTY_DB_PASSWORD:-warranty_pwd}
+      H2_CONSOLE_ENABLED: "false"
     ports:
       - "8082:8082"
     networks: [assetpilot-net]
+    depends_on:
+      warranty-db:
+        condition: service_healthy
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
@@ -35,13 +111,16 @@ services:
     environment:
       SERVER_PORT: 8084
       GRPC_PORT: 9090
-      MAINTENANCE_DB_URL: jdbc:h2:file:/data/maintenancedb
+      MAINTENANCE_DB_URL: jdbc:postgresql://maintenance-db:5432/maintenancedb
+      MAINTENANCE_DB_USERNAME: ${MAINTENANCE_DB_USERNAME:-maintenance}
+      MAINTENANCE_DB_PASSWORD: ${MAINTENANCE_DB_PASSWORD:-maintenance_pwd}
     ports:
       - "9090:9090"
       - "8084:8084"
-    volumes:
-      - maintenance-data:/data
     networks: [assetpilot-net]
+    depends_on:
+      maintenance-db:
+        condition: service_healthy
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8084 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
@@ -52,16 +131,19 @@ services:
     container_name: assetpilot-asset
     environment:
       SERVER_PORT: 8081
-      ASSET_DB_URL: jdbc:h2:file:/data/assetdb
+      ASSET_DB_URL: jdbc:postgresql://asset-db:5432/assetdb
+      ASSET_DB_USERNAME: ${ASSET_DB_USERNAME:-asset}
+      ASSET_DB_PASSWORD: ${ASSET_DB_PASSWORD:-asset_pwd}
+      H2_CONSOLE_ENABLED: "false"
       WARRANTY_SERVICE_URL: http://warranty-service:8082/ws
       MAINTENANCE_GRPC_ADDRESS: static://maintenance-service:9090
       GATEWAY_PUBLIC_URL: http://localhost:8083
     ports:
       - "8081:8081"
-    volumes:
-      - asset-data:/data
     networks: [assetpilot-net]
     depends_on:
+      asset-db:
+        condition: service_healthy
       warranty-service:
         condition: service_healthy
       maintenance-service:
@@ -96,6 +178,9 @@ networks:
   assetpilot-net:
     driver: bridge
 
+# Volumes PostgreSQL (nouveaux noms : les anciens volumes H2 asset-data / maintenance-data
+# ne sont plus utilisés et peuvent être supprimés avec « docker volume rm »)
 volumes:
-  asset-data:
-  maintenance-data:
+  asset-db-data:
+  warranty-db-data:
+  maintenance-db-data:
