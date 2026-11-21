@@ -1,0 +1,23 @@
+name: Backlog
+
+on:
+  pull_request:
+    paths: ["docs/backlog/**", "scripts/backlog/**"]
+  push:
+    branches: [develop, main]
+    paths: ["docs/backlog/**", "scripts/backlog/**"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Valider backlog.json
+        run: node scripts/backlog/backlog.mjs validate
+      - name: Vérifier que les fichiers Markdown sont à jour
+        run: |
+          node scripts/backlog/backlog.mjs render
+          git diff --exit-code -- docs/backlog || (echo "::error::Lancez 'node scripts/backlog/backlog.mjs render' et commitez le résultat." && exit 1)

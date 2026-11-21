@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Product Backlog
+    url: https://github.com/MohamedTrikii/AssetPilot_SOA/blob/develop/docs/backlog/PRODUCT_BACKLOG.md
+    about: Consulter le backlog complet avant de créer une Issue.

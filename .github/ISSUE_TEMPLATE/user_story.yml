@@ -1,0 +1,37 @@
+name: User story
+description: Nouvelle fonctionnalité pour le Product Backlog
+title: "[US-XXX] "
+labels: ["type:story", "status:backlog"]
+body:
+  - type: markdown
+    attributes:
+      value: "Pensez aussi à ajouter l'élément dans `docs/backlog/backlog.json` (`node scripts/backlog/backlog.mjs add ...`) pour qu'il reste dans le backlog versionné."
+  - type: dropdown
+    id: epic
+    attributes:
+      label: Épic
+      options: [EP-01 Organisation, EP-02 Architecture & contrats, EP-03 Asset REST, EP-04 Maintenance gRPC, EP-05 Warranty SOAP, EP-06 Interservices, EP-07 API Gateway, EP-08 Qualité & tests, EP-09 Docker & résilience, EP-10 Documentation]
+    validations: { required: true }
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      placeholder: "En tant que <rôle>, je veux <besoin> afin de <bénéfice>."
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d'acceptation
+      value: |
+        - [ ] 
+    validations: { required: true }
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priorité (MoSCoW)
+      options: [Must have, Should have, Could have, Won't have]
+  - type: dropdown
+    id: points
+    attributes:
+      label: Estimation (points)
+      options: ["1", "2", "3", "5", "8", "13"]
