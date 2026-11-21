@@ -83,6 +83,7 @@ function Show-Summary {
     Write-Host '  Asset Service (direct)   http://localhost:8081'
     Write-Host '  Warranty Service         http://localhost:8082/ws'
     Write-Host '  Maintenance gRPC         localhost:9090   (health : http://localhost:8084/actuator/health)'
+    Write-Host '  Bases PostgreSQL (Docker) localhost:5433 assetdb / 5434 warrantydb / 5435 maintenancedb'
     Write-Host ''
     Write-Host '  Postman : importer postman\AssetPilot.postman_collection.json'
     Write-Host '  Arret   : scripts\stop.bat  (ou .\scripts\stop.ps1)'

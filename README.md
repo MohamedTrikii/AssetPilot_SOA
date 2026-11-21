@@ -28,7 +28,7 @@ Plateforme de gestion du parc informatique — Mini-projet Architecture SOA et S
                 ┌───────────────────────────┐   SOAP (CheckWarranty,      ┌──────────────────────┐
                 │  Asset Service  :8081     │──── GetWarrantyDetails) ───▶│ Warranty Service     │
                 │  REST /api/v1 + OpenAPI   │                             │ :8082  SOAP/XSD/WSDL │
-                │  H2 assetdb               │   gRPC (unaire + stream)    └──────────────────────┘
+                │  PostgreSQL assetdb       │   gRPC (unaire + stream)    └──────────────────────┘
                 │                           │────────────────────────────▶┌──────────────────────┐
                 └───────────────────────────┘                             │ Maintenance Service  │
                                                                           │ :9090 gRPC  :8084 HC │
@@ -42,7 +42,7 @@ Plateforme de gestion du parc informatique — Mini-projet Architecture SOA et S
 
 Détail complet de l'architecture et de la configuration : [docs/architecture-configuration.md](docs/architecture-configuration.md).
 
-Chaque service possède sa propre base de données (H2). Contrats : [`maintenance.proto`](maintenance-service/src/main/proto/assetpilot/maintenance/v1/maintenance.proto), [`warranty.xsd`](warranty-service/src/main/resources/xsd/warranty.xsd), OpenAPI généré (`/v3/api-docs`). L'Asset Service embarque une copie de ces deux contrats pour générer ses clients (à resynchroniser en cas de modification).
+Chaque service possède sa propre base de données (PostgreSQL en Docker, H2 en mémoire en local et en test), dont le schéma est versionné par Flyway — voir [Bases de données](docs/architecture-configuration.md#29-bases-de-données). Contrats : [`maintenance.proto`](maintenance-service/src/main/proto/assetpilot/maintenance/v1/maintenance.proto), [`warranty.xsd`](warranty-service/src/main/resources/xsd/warranty.xsd), OpenAPI généré (`/v3/api-docs`). L'Asset Service embarque une copie de ces deux contrats pour générer ses clients (à resynchroniser en cas de modification).
 
 ### Flux principal : déclarer une panne
 
@@ -70,7 +70,7 @@ Le script vérifie les prérequis et les ports, démarre les services dans le bo
 docker compose up --build
 ```
 
-L'ordre de démarrage est géré par les healthchecks (Warranty + Maintenance → Asset → Gateway). Les données Asset et Maintenance sont conservées dans les volumes `asset-data` et `maintenance-data` (`docker compose down -v` pour repartir de zéro).
+L'ordre de démarrage est géré par les healthchecks (bases PostgreSQL → Warranty + Maintenance → Asset → Gateway). Les données des trois services sont conservées dans les volumes `asset-db-data`, `warranty-db-data` et `maintenance-db-data` (`docker compose down -v` pour repartir de zéro). Les identifiants des bases se changent dans un fichier `.env` (modèle : [`.env.example`](.env.example)).
 
 ### Option 2 — En local avec Maven (4 terminaux, Java 17+)
 
@@ -102,7 +102,7 @@ mvn verify   # dans chaque dossier de service
 | Swagger UI (via Gateway) | http://localhost:8083/swagger-ui.html |
 | OpenAPI JSON | http://localhost:8083/v3/api-docs |
 | WSDL (via Gateway) | http://localhost:8083/ws/warranties.wsdl |
-| Asset Service direct | http://localhost:8081 (Swagger : `/swagger-ui.html`, H2 : `/h2-console`) |
+| Asset Service direct | http://localhost:8081 (Swagger : `/swagger-ui.html` ; console H2 `/h2-console` en mode local uniquement) |
 | Warranty Service direct | http://localhost:8082/ws |
 | Maintenance Service gRPC | localhost:9090 (réflexion activée) |
 | Healthchecks | `/actuator/health` sur 8081, 8082, 8083, 8084 |
@@ -172,7 +172,7 @@ es.addEventListener('status', e => console.log(JSON.parse(e.data))); // { previo
 
 ## Technologies
 
-Java 17, Spring Boot 3.3.x (Gateway : Spring Boot 4.1 / Spring Cloud 2025.1), Maven, Spring Cloud Gateway, REST/OpenAPI (springdoc), gRPC (net.devh grpc-spring-boot-starter), Spring Web Services, H2, Docker Compose.
+Java 17, Spring Boot 3.3.x (Gateway : Spring Boot 4.1 / Spring Cloud 2025.1), Maven, Spring Cloud Gateway, REST/OpenAPI (springdoc), gRPC (net.devh grpc-spring-boot-starter), Spring Web Services, PostgreSQL 16, H2, Flyway, Docker Compose.
 
 ## Branches
 

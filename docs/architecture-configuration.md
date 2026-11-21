@@ -119,7 +119,8 @@ Les erreurs REST sont renvoyées au format **Problem Details (RFC 7807)**, avec 
 | grpc-spring-boot-starter (net.devh) | 3.1.0.RELEASE |
 | springdoc-openapi | 2.6.0 |
 | Spring Web Services · WSDL4J · jaxb-maven-plugin | géré par Spring Boot · 1.6.3 · 4.0.8 |
-| Base de données | H2 (une instance par service) |
+| Base de données | PostgreSQL 16 en Docker (une instance par service) · H2 en local et en test |
+| Migrations de schéma | Flyway (géré par Spring Boot) |
 | Build / conteneurs | Maven 3.9 · Docker Compose |
 
 ### 2.2 Ports
@@ -127,8 +128,9 @@ Les erreurs REST sont renvoyées au format **Problem Details (RFC 7807)**, avec 
 | Service | Port | Usage |
 |---|---|---|
 | API Gateway | 8083 | Point d'entrée HTTP |
-| Asset Service | 8081 | REST, Swagger UI, console H2 |
-| Warranty Service | 8082 | SOAP (`/ws`), WSDL, console H2 |
+| Asset Service | 8081 | REST, Swagger UI, console H2 (mode local) |
+| Warranty Service | 8082 | SOAP (`/ws`), WSDL, console H2 (mode local) |
+| PostgreSQL assetdb · warrantydb · maintenancedb | 5433 · 5434 · 5435 | Accès direct aux bases Docker (psql, DBeaver) |
 | Maintenance Service | 9090 | gRPC |
 | Maintenance Service | 8084 | HTTP d'administration (Actuator) |
 
@@ -148,17 +150,21 @@ La configuration est **externalisée** : chaque valeur qui change selon l'enviro
 | Service | Variable | Défaut (local) | Valeur Docker Compose |
 |---|---|---|---|
 | Asset | `SERVER_PORT` | `8081` | `8081` |
-| Asset | `ASSET_DB_URL` | `jdbc:h2:mem:assetdb;DB_CLOSE_DELAY=-1` | `jdbc:h2:file:/data/assetdb` |
+| Asset | `ASSET_DB_URL` | `jdbc:h2:mem:assetdb;DB_CLOSE_DELAY=-1` | `jdbc:postgresql://asset-db:5432/assetdb` |
+| Asset | `ASSET_DB_USERNAME` / `ASSET_DB_PASSWORD` | `sa` / (vide) | `.env` (défaut `asset` / `asset_pwd`) |
+| Asset · Warranty | `H2_CONSOLE_ENABLED` | `true` | `false` |
 | Asset | `WARRANTY_SERVICE_URL` | `http://localhost:8082/ws` | `http://warranty-service:8082/ws` |
 | Asset | `MAINTENANCE_GRPC_ADDRESS` | `static://localhost:9090` | `static://maintenance-service:9090` |
 | Asset | `GATEWAY_PUBLIC_URL` | `http://localhost:8083` | `http://localhost:8083` |
 | Asset | `SEED_DATA` | `true` | (défaut) |
 | Maintenance | `SERVER_PORT` | `8084` | `8084` |
 | Maintenance | `GRPC_PORT` | `9090` | `9090` |
-| Maintenance | `MAINTENANCE_DB_URL` | `jdbc:h2:mem:maintenancedb;DB_CLOSE_DELAY=-1` | `jdbc:h2:file:/data/maintenancedb` |
+| Maintenance | `MAINTENANCE_DB_URL` | `jdbc:h2:mem:maintenancedb;DB_CLOSE_DELAY=-1` | `jdbc:postgresql://maintenance-db:5432/maintenancedb` |
+| Maintenance | `MAINTENANCE_DB_USERNAME` / `MAINTENANCE_DB_PASSWORD` | `sa` / (vide) | `.env` (défaut `maintenance` / `maintenance_pwd`) |
 | Warranty | `SERVER_PORT` | `8082` | `8082` |
-| Warranty | `WARRANTY_DB_URL` | `jdbc:h2:mem:warrantydb;…` | (défaut, en mémoire) |
-| Warranty | `WARRANTY_DDL_AUTO` | `create-drop` | (défaut) |
+| Warranty | `WARRANTY_DB_URL` | `jdbc:h2:mem:warrantydb;…` | `jdbc:postgresql://warranty-db:5432/warrantydb` |
+| Warranty | `WARRANTY_DB_USERNAME` / `WARRANTY_DB_PASSWORD` | `sa` / (vide) | `.env` (défaut `warranty` / `warranty_pwd`) |
+| Asset · Maintenance · Warranty | `*_DB_POOL_SIZE` | `10` | (défaut) |
 | Gateway | `SERVER_PORT` | `8083` | `8083` |
 | Gateway | `ASSET_SERVICE_URL` | `http://localhost:8081` | `http://asset-service:8081` |
 | Gateway | `WARRANTY_SERVICE_URL` | `http://localhost:8082` | `http://warranty-service:8082` |
@@ -209,13 +215,42 @@ Autres réglages :
 
 ### 2.9 Bases de données
 
-| Service | Base | Mode local | Mode Docker | Schéma |
-|---|---|---|---|---|
-| Asset | `assetdb` | H2 en mémoire | H2 fichier, volume `asset-data` | `ddl-auto: update` |
-| Maintenance | `maintenancedb` | H2 en mémoire | H2 fichier, volume `maintenance-data` | `ddl-auto: update` |
-| Warranty | `warrantydb` | H2 en mémoire | H2 en mémoire | `create-drop` + jeu de garanties chargé au démarrage |
+Chaque service possède sa propre base (*database per service*). Aucun service n'accède à la base d'un autre : le lien entre les données passe par l'identifiant métier `assetTag` (ex. `AST-001`), commun aux trois services, sans clé étrangère entre bases.
 
-Aucun service n'accède à la base d'un autre. Le lien entre les données passe par l'identifiant métier `assetTag` (ex. `AST-001`), commun aux trois services.
+| Service | Base | Mode local / tests | Mode Docker | Données de démonstration |
+|---|---|---|---|---|
+| Asset | `assetdb` | H2 en mémoire | PostgreSQL `asset-db`, volume `asset-db-data` | 5 équipements, 3 employés, 1 affectation (`DataInitializer`, si base vide) |
+| Maintenance | `maintenancedb` | H2 en mémoire | PostgreSQL `maintenance-db`, volume `maintenance-db-data` | aucune |
+| Warranty | `warrantydb` | H2 en mémoire | PostgreSQL `warranty-db`, volume `warranty-db-data` | 4 garanties AST-001..AST-004 (`WarrantyApplication#initData`, si base vide) |
+
+**Gestion du schéma.** Le schéma est créé et versionné par **Flyway** (`src/main/resources/db/migration/V<n>__<description>.sql` dans chaque service). Hibernate est en `ddl-auto: validate` : il vérifie au démarrage que les entités JPA correspondent au schéma et refuse de démarrer sinon. Les scripts sont écrits en SQL portable, exécutés à l'identique sur H2 et PostgreSQL. Toute évolution passe par un nouveau script (`V2__…`) ; un script déjà appliqué n'est jamais modifié (Flyway contrôle sa somme de contrôle). L'historique est visible dans la table `flyway_schema_history` de chaque base.
+
+**Modèle de données.**
+
+`assetdb` (Asset Service)
+
+| Table | Colonnes principales | Contraintes |
+|---|---|---|
+| `equipments` | `id` (identity), `asset_tag`, `name`, `type`, `brand`, `model`, `serial_number`, `purchase_date`, `status` | PK ; `asset_tag` et `serial_number` uniques ; `CHECK` sur `type` et `status` ; index sur `status`, `type` |
+| `employees` | `id` (identity), `first_name`, `last_name`, `email`, `department`, `job_title` | PK ; `email` unique |
+| `assignments` | `id` (identity), `equipment_id`, `employee_id`, `assigned_at`, `returned_at`, `status`, `notes` | PK ; FK vers `equipments` et `employees` ; `CHECK` sur `status` et `returned_at >= assigned_at` ; index `(equipment_id, status)`, `employee_id` |
+
+`maintenancedb` (Maintenance Service)
+
+| Table | Colonnes principales | Contraintes |
+|---|---|---|
+| `maintenance_requests` | `id` (UUID), `asset_id`, `description`, `created_at`, `status` | PK ; `CHECK` sur `status` (`OPEN`, `SCHEDULED`, `RESOLVED`, `CANCELLED`) ; index sur `asset_id` |
+| `interventions` | `id` (UUID), `maintenance_request_id`, `asset_id`, `scheduled_at`, `status` | PK ; FK vers `maintenance_requests` ; `CHECK` sur `status` (`SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`) ; index sur `maintenance_request_id`, `asset_id` |
+
+`warrantydb` (Warranty Service)
+
+| Table | Colonnes principales | Contraintes |
+|---|---|---|
+| `warranties` | `id`, `asset_id`, `contract_number`, `provider`, `start_date`, `end_date`, `status`, `coverage_type`, `sla_level`, `terms`, `support_contact` | PK ; `asset_id` et `contract_number` uniques ; `CHECK` sur `status`, `coverage_type` et `end_date >= start_date` |
+
+**Persistance et remise à zéro.** En Docker, les données des trois bases survivent aux redémarrages (`docker compose restart`, `down` puis `up`). `docker compose down -v` (ou `stop.bat reset`) supprime les volumes et repart d'une base vide, recréée par Flyway et remplie par les jeux de démonstration. Les identifiants PostgreSQL se définissent dans `.env` (modèle `.env.example`, fichier non versionné).
+
+**Accès direct aux bases Docker** : `docker exec -it assetpilot-asset-db psql -U asset -d assetdb` (idem `assetpilot-warranty-db` / `warranty` / `warrantydb` et `assetpilot-maintenance-db` / `maintenance` / `maintenancedb`), ou un client SQL sur `localhost:5433`, `5434`, `5435`.
 
 ### 2.10 Supervision
 
@@ -234,9 +269,10 @@ Chaque service expose Spring Boot Actuator :
   - étape 2 : `eclipse-temurin:17-jre-jammy` (exécution), avec un utilisateur non root.
 - **Docker Compose** (`docker-compose.yml`) :
   - réseau interne `assetpilot-net` ;
-  - volumes nommés pour les données ;
+  - une base PostgreSQL par service (`asset-db`, `warranty-db`, `maintenance-db`), healthcheck `pg_isready` ;
+  - volumes nommés pour les données (`asset-db-data`, `warranty-db-data`, `maintenance-db-data`) ;
   - healthchecks sur `/actuator/health` ;
-  - ordre de démarrage piloté par `depends_on: condition: service_healthy` : Warranty et Maintenance, puis Asset, puis Gateway.
+  - ordre de démarrage piloté par `depends_on: condition: service_healthy` : bases PostgreSQL, puis Warranty et Maintenance, puis Asset, puis Gateway.
 
 ### 2.12 Lancement
 
