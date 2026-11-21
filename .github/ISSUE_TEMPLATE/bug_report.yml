@@ -1,0 +1,27 @@
+name: Anomalie
+description: Signaler un bug
+title: "[BUG-XXX] "
+labels: ["type:bug", "status:todo"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Composant
+      options: [asset, maintenance, warranty, gateway, infra, docs]
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      placeholder: "1. docker compose up\n2. POST /api/v1/...\n3. ..."
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu / obtenu
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: shell

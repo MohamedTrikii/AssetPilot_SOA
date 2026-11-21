@@ -1,0 +1,21 @@
+name: Tâche technique
+description: Tâche technique, configuration, documentation ou test
+title: "[US-XXX] "
+labels: ["type:task", "status:backlog"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d'acceptation
+      value: |
+        - [ ] 
+  - type: dropdown
+    id: component
+    attributes:
+      label: Composant
+      options: [asset, maintenance, warranty, gateway, infra, docs]
