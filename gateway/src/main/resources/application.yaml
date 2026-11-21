@@ -22,7 +22,7 @@ spring:
             - id: asset-openapi
               uri: ${ASSET_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/v3/api-docs/**,/swagger-ui/**,/swagger-ui.html
+                - Path=/v3/api-docs,/v3/api-docs/**,/v3/api-docs.yaml,/swagger-ui/**,/swagger-ui.html
 
             # Warranty Service — SOAP (endpoint + WSDL)
             - id: warranty-soap
