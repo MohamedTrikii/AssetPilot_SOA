@@ -5,21 +5,30 @@ spring:
   application:
     name: warranty-service
 
+  # Base propre au service : H2 en mémoire en local et en test, PostgreSQL (warrantydb) en Docker.
+  # Le driver est déduit de l'URL JDBC.
   datasource:
     url: ${WARRANTY_DB_URL:jdbc:h2:mem:warrantydb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
-    driverClassName: org.h2.Driver
-    username: sa
-    password: ""
+    username: ${WARRANTY_DB_USERNAME:sa}
+    password: ${WARRANTY_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${WARRANTY_DB_POOL_SIZE:10}
+
+  # Schéma versionné par Flyway (db/migration) ; Hibernate vérifie seulement la cohérence des entités.
+  # Les données sont conservées entre deux redémarrages (BUG-001).
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
   h2:
     console:
-      enabled: true
+      enabled: ${H2_CONSOLE_ENABLED:true}
       path: /h2-console
 
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: ${WARRANTY_DDL_AUTO:create-drop}
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:

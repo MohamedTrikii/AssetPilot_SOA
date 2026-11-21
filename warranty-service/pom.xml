@@ -47,6 +47,23 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- PostgreSQL en Docker ; H2 conservé pour le mode local et les tests -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Migrations de schéma versionnées (src/main/resources/db/migration) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
         <!-- Jakarta XML Binding runtime -->
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
